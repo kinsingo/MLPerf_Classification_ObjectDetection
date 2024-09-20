@@ -20,7 +20,10 @@ def preprocessing(image, new_shape=(224, 224), align=64, format=None):
     return image_input
 
 def run_example(config):
-    model_path = config["model"]["path"]
+    #model_path = 'model/MobileNetV1-1.dxnn' #Ok (1F/4T)
+    model_path = 'model/ResNet50-1.dxnn' #Ok (1F/4T)
+    #model_path = 'model/resnet50_v1_mlperf.dxnn' #NG (4F/4T)
+
     classes = config["output"]["classes"]
     input_list = []
     for source in config["input"]["sources"]:

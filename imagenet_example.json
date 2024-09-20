@@ -1,9 +1,6 @@
 {
     "description": "run classification application ",
     "usage": "classification",
-    "model": {
-        "path": "model/ResNet50-1.dxnn"
-    },
     "input": {
         "description": "input_format = image or bin",
         "format": "RGB",
