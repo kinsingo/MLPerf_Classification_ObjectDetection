@@ -33,6 +33,27 @@ name="$model-$backend"
 extra_args=""
 
 #
+# dx-rt (SJH)
+# 
+# if [ $name == "resnet50-onnxruntime" ] ; then
+#     model_path="$MODEL_DIR/resnet50_v1.onnx"
+#     profile=resnet50-onnxruntime
+# fi
+# if [ $name == "mobilenet-onnxruntime" ] ; then
+#     model_path="$MODEL_DIR/mobilenet_v1_1.0_224.onnx"
+#     profile=mobilenet-onnxruntime
+# fi
+if [ $name == "resnet50-dxrt" ] ; then
+    model_path="$MODEL_DIR/ResNet50-1.dxnn"
+    profile=resnet50-dxrt
+fi
+if [ $name == "mobilenet-dxrt" ] ; then
+    model_path="$MODEL_DIR/MobileNetV1-1.dxnn"
+    profile=mobilenet-dxrt
+fi
+
+
+#
 # tensorflow
 #
 if [ $name == "resnet50-tf" ] ; then

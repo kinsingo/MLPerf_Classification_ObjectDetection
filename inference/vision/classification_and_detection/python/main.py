@@ -35,6 +35,11 @@ MILLI_SEC = 1000
 
 # the datasets we support
 SUPPORTED_DATASETS = {
+    #SJH (DX-RT)
+    "imagenet-dxrt-resnet50-mobilenet":
+        (imagenet.Imagenet, dataset.pre_process_dxrt, dataset.PostProcessArgMax(offset=0),
+         {"image_size": [224, 224, 3]}),
+
     "imagenet":
         (imagenet.Imagenet, dataset.pre_process_vgg, dataset.PostProcessCommon(offset=-1),
          {"image_size": [224, 224, 3]}),
@@ -87,6 +92,20 @@ SUPPORTED_PROFILES = {
         "max-batchsize": 32,
     },
 
+    # SJH (DX-RT)
+     "resnet50-dxrt": {
+        "dataset": "imagenet-dxrt-resnet50-mobilenet",
+        "outputs": "ArgMax:0",
+        "backend": "dxrt",
+        "model-name": "resnet50",
+    },
+        "mobilenet-dxrt": {
+        "dataset": "imagenet-dxrt-resnet50-mobilenet",
+        "outputs": "MobilenetV1/Predictions/Reshape_1:0",
+        "backend": "dxrt",
+        "model-name": "mobilenet",
+    },
+
     # resnet
     "resnet50-tf": {
         "inputs": "input_tensor:0",
@@ -115,6 +134,7 @@ SUPPORTED_PROFILES = {
         "model-name": "resnet50",
     },
 
+
     # mobilenet
     "mobilenet-tf": {
         "inputs": "input:0",
@@ -129,6 +149,7 @@ SUPPORTED_PROFILES = {
         "backend": "onnxruntime",
         "model-name": "mobilenet",
     },
+
 
     # ssd-mobilenet
     "ssd-mobilenet-tf": {
@@ -279,7 +300,10 @@ def get_args():
 
 
 def get_backend(backend):
-    if backend == "tensorflow":
+    if backend == "dxrt":
+        from backend_dxrt import BackendDXRT
+        backend = BackendDxrt()
+    elif backend == "tensorflow":
         from backend_tf import BackendTensorflow
         backend = BackendTensorflow()
     elif backend == "onnxruntime":

@@ -280,3 +280,22 @@ def pre_process_openimages_retinanet(img, dims=None, need_transpose=False):
     if need_transpose:
         img = img.transpose([2, 0, 1])
     return img
+
+
+def pre_process_dxrt(img, dims=None, need_transpose=False):
+    new_shape=(224, 224)
+    align=64
+    format=cv2.COLOR_BGR2RGB
+
+    image = cv2.resize(image, new_shape)
+    h, w, c = image.shape
+    if format is not None:
+        image = cv2.cvtColor(image, format)
+    if align == 0 :
+        return image
+    length = w * c
+    align_factor = align - (length - (length & (-align)))
+    image = np.reshape(image, (h, w * c))
+    dummy = np.full([h, align_factor], 0, dtype=np.uint8)
+    image_input = np.concatenate([image, dummy], axis=-1)
+    return image_input
