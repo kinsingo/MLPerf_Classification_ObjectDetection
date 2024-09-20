@@ -2,7 +2,7 @@
     "description": "run classification application ",
     "usage": "classification",
     "model": {
-        "path": "example/EfficientNetB0_4/graph.dxnn"
+        "path": "model/ResNet50-1.dxnn"
     },
     "input": {
         "description": "input_format = image or bin",
@@ -10,19 +10,19 @@
         "sources": [
             {
                 "type": "image",
-                "path": "example/ILSVRC2012/0.jpeg"
+                "path": "ILSVRC2012/0.jpeg"
             },
             {
                 "type": "image",
-                "path": "example/ILSVRC2012/1.jpeg"
+                "path": "ILSVRC2012/1.jpeg"
             },
             {
                 "type": "image",
-                "path": "example/ILSVRC2012/2.jpeg"
+                "path": "ILSVRC2012/2.jpeg"
             },
             {
                 "type": "image",
-                "path": "example/ILSVRC2012/3.jpeg"
+                "path": "ILSVRC2012/3.jpeg"
             }
         ]
     },
