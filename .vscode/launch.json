@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Debug sjh_main.py",
+            "request": "launch",
+            "program": "${workspaceFolder}/inference/vision/classification_and_detection/sjh_main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--profile", "resnet50-dxrt",
+                "--model", "/path/to/model",
+                "--dataset-path", "/path/to/dataset",
+                "--output", "/path/to/output"
+            ]
+        }
+    ]
+}

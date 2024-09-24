@@ -43,10 +43,9 @@ done
 # Python 스크립트를 실행하기 위한 명령어를 구성합니다.
 # 명령어는 Python 스크립트와 각종 설정을 인수로 포함하며, Python 3을 사용하여 실행됩니다.
 # `eval`을 사용하여 구성된 명령어를 실행합니다.
-cmd="python3 python/main.py --profile $profile $common_opt --model \"$model_path\" $dataset \
-    --output \"$OUTPUT_DIR\" $EXTRA_OPS ${ARGS}"
+cmd="python3 python/main.py --profile $profile $common_opt --model \"$model_path\" $dataset --output \"$OUTPUT_DIR\" $EXTRA_OPS ${ARGS}"
 
 # 8. 구성된 명령어를 출력하고 실행
 # 최종적으로 구성된 명령어를 echo로 출력한 후, `eval`을 사용해 실행합니다.
 echo $cmd
-eval $cmd
+#eval $cmd

@@ -12,14 +12,13 @@ import time
 import cv2
 import numpy as np
 
-import dataset
+import python.dataset as dataset
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("imagenet")
 
 
 class Imagenet(dataset.Dataset):
-
     def __init__(self, data_path, image_list, name, use_cache=0, image_size=None,
             image_format="NHWC", pre_process=None, count=None, cache_dir=None, preprocessed_dir=None, threads=os.cpu_count()):
         super(Imagenet, self).__init__()
@@ -84,10 +83,17 @@ class Imagenet(dataset.Dataset):
                 lists.append([ next(f) for x in range(int(CNT%N)) ])
                 image_lists.append([])
                 label_lists.append([])
-        executor = concurrent.futures.ThreadPoolExecutor(N)
-        futures = [executor.submit(self.process, data_path, item, image_lists[lists.index(item)],
-            label_lists[lists.index(item)]) for item in lists]
-        concurrent.futures.wait(futures)
+        
+
+        # 멀티스레딩 대신 순차적 처리 (디버깅 위함)
+        for item in lists:
+            self.process(data_path, item, image_lists[lists.index(item)], label_lists[lists.index(item)])
+        # 멀티스레딩 처리
+        #executor = concurrent.futures.ThreadPoolExecutor(N)
+        #futures = [executor.submit(self.process, data_path, item, image_lists[lists.index(item)],
+        #    label_lists[lists.index(item)]) for item in lists]
+        #concurrent.futures.wait(futures)
+
         for i in range (len(image_lists)):
             self.image_list += image_lists[i]
             self.label_list += label_lists[i]

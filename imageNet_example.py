@@ -31,6 +31,7 @@ def run_example(config):
             input_list.append(source["path"])
     if len(input_list) == 0:
         input_list.append("example/ILSVRC2012/0.jpeg")
+        
     ie = InferenceEngine(model_path)
     for input_path in input_list:
         image_src = cv2.imread(input_path, cv2.IMREAD_COLOR)

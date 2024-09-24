@@ -107,6 +107,32 @@ class PostProcessCommon:
         results["total"] = self.total
 
 
+
+class PostProcessDXRT_SingleStream_ArgMax:
+    def __init__(self):
+        self.good = 0
+        self.total = 0
+
+    def __call__(self, results, ids, expected=None, result_dict=None):
+        processed_results = []
+        result = np.argmax(results[0])
+        processed_results.append([result])
+        if result == expected[0]:
+            self.good += 1
+        self.total += 1
+        return processed_results
+
+    def add_results(self, results):
+        pass
+
+    def start(self):
+        self.good = 0
+        self.total = 0
+
+    def finalize(self, results, ds=False, output_dir=None):
+        results["good"] = self.good
+        results["total"] = self.total 
+
 class PostProcessArgMax:
     def __init__(self, offset=0):
         self.offset = offset
@@ -184,22 +210,7 @@ def pre_process_vgg(img, dims=None, need_transpose=False):
     return img
 
 
-def pre_process_mobilenet(img, dims=None, need_transpose=False):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    output_height, output_width, _ = dims
-    img = resize_with_aspectratio(img, output_height, output_width, inter_pol=cv2.INTER_LINEAR)
-    img = center_crop(img, output_height, output_width)
-    img = np.asarray(img, dtype='float32')
-
-    img /= 255.0
-    img -= 0.5
-    img *= 2
-
-    # transpose if needed
-    if need_transpose:
-        img = img.transpose([2, 0, 1])
-    return img
 
 
 def pre_process_imagenet_pytorch(img, dims=None, need_transpose=False):
@@ -281,21 +292,43 @@ def pre_process_openimages_retinanet(img, dims=None, need_transpose=False):
         img = img.transpose([2, 0, 1])
     return img
 
+#########################
+#### Important (SJH) ####
+#########################
 
+#mobilenet-onnxruntime
+def pre_process_mobilenet(img, dims=None, need_transpose=False):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    output_height, output_width, _ = dims
+    img = resize_with_aspectratio(img, output_height, output_width, inter_pol=cv2.INTER_LINEAR)
+    img = center_crop(img, output_height, output_width)
+    img = np.asarray(img, dtype='float32')
+
+    img /= 255.0
+    img -= 0.5
+    img *= 2
+
+    # transpose if needed
+    if need_transpose:
+        img = img.transpose([2, 0, 1])
+    return img
+
+#resnet50-dxrt, mobilenet-dxrt
 def pre_process_dxrt(img, dims=None, need_transpose=False):
-    new_shape=(224, 224)
+    output_height, output_width, _ = dims #224, 224, 3
     align=64
     format=cv2.COLOR_BGR2RGB
+    img = cv2.resize(img, (output_width,output_height))
 
-    image = cv2.resize(image, new_shape)
-    h, w, c = image.shape
+    h, w, c = img.shape
     if format is not None:
-        image = cv2.cvtColor(image, format)
+        img = cv2.cvtColor(img, format)
     if align == 0 :
-        return image
+        return img
     length = w * c
     align_factor = align - (length - (length & (-align)))
-    image = np.reshape(image, (h, w * c))
+    img = np.reshape(img, (h, w * c))
     dummy = np.full([h, align_factor], 0, dtype=np.uint8)
-    image_input = np.concatenate([image, dummy], axis=-1)
+    image_input = np.concatenate([img, dummy], axis=-1)
     return image_input

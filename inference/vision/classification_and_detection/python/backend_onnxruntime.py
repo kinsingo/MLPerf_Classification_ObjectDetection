@@ -6,8 +6,7 @@ onnxruntime backend (https://github.com/microsoft/onnxruntime)
 
 import onnxruntime as rt
 import os
-import backend
-
+import python.backend as backend
 
 class BackendOnnxruntime(backend.Backend):
     def __init__(self):

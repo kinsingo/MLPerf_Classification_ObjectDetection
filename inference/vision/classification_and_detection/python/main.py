@@ -20,10 +20,10 @@ from queue import Queue
 import mlperf_loadgen as lg
 import numpy as np
 
-import dataset
-import imagenet
-import coco
-import openimages
+import python.dataset as dataset
+import python.imagenet as imagenet
+import python.coco as coco
+import python.openimages as openimages
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("main")
@@ -35,17 +35,21 @@ MILLI_SEC = 1000
 
 # the datasets we support
 SUPPORTED_DATASETS = {
-    #SJH (DX-RT)
+    #resnet50-dxrt, mobilenet-dxrt
     "imagenet-dxrt-resnet50-mobilenet":
-        (imagenet.Imagenet, dataset.pre_process_dxrt, dataset.PostProcessArgMax(offset=0),
+        (imagenet.Imagenet, dataset.pre_process_dxrt, dataset.PostProcessDXRT_SingleStream_ArgMax(),
          {"image_size": [224, 224, 3]}),
 
+    #resnet50-onnxruntime
     "imagenet":
         (imagenet.Imagenet, dataset.pre_process_vgg, dataset.PostProcessCommon(offset=-1),
          {"image_size": [224, 224, 3]}),
+
+    #mobilenet-onnxruntime
     "imagenet_mobilenet":
         (imagenet.Imagenet, dataset.pre_process_mobilenet, dataset.PostProcessArgMax(offset=-1),
          {"image_size": [224, 224, 3]}),
+
     "imagenet_pytorch":
         (imagenet.Imagenet, dataset.pre_process_imagenet_pytorch, dataset.PostProcessArgMax(offset=0),
          {"image_size": [224, 224, 3]}),
@@ -94,14 +98,16 @@ SUPPORTED_PROFILES = {
 
     # SJH (DX-RT)
      "resnet50-dxrt": {
+        "inputs": "Im2col_input",
         "dataset": "imagenet-dxrt-resnet50-mobilenet",
-        "outputs": "ArgMax:0",
+        "outputs": "495",
         "backend": "dxrt",
         "model-name": "resnet50",
     },
         "mobilenet-dxrt": {
+        "inputs": "Im2col_input",
+        "outputs": "249",
         "dataset": "imagenet-dxrt-resnet50-mobilenet",
-        "outputs": "MobilenetV1/Predictions/Reshape_1:0",
         "backend": "dxrt",
         "model-name": "mobilenet",
     },
@@ -236,48 +242,83 @@ SCENARIO_MAP = {
 last_timeing = []
 
 
-def get_args():
+def get_args(profile, mlperf_conf, model, dataset_path, output, accuracy):
     """Parse commandline."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", choices=SUPPORTED_DATASETS.keys(), help="dataset")
-    parser.add_argument("--dataset-path", required=True, help="path to the dataset")
-    parser.add_argument("--dataset-list", help="path to the dataset list")
-    parser.add_argument("--data-format", choices=["NCHW", "NHWC"], help="data format")
-    parser.add_argument("--profile", choices=SUPPORTED_PROFILES.keys(), help="standard profiles")
-    parser.add_argument("--scenario", default="SingleStream",
-                        help="mlperf benchmark scenario, one of " + str(list(SCENARIO_MAP.keys())))
-    parser.add_argument("--max-batchsize", type=int, help="max batch size in a single inference")
-    parser.add_argument("--model", required=True, help="model file")
-    parser.add_argument("--output", default="output", help="test results")
-    parser.add_argument("--inputs", help="model inputs")
-    parser.add_argument("--outputs", help="model outputs")
-    parser.add_argument("--backend", help="runtime to use")
-    parser.add_argument("--model-name", help="name of the mlperf model, ie. resnet50")
-    parser.add_argument("--threads", default=os.cpu_count(), type=int, help="threads")
-    parser.add_argument("--qps", type=int, help="target qps")
-    parser.add_argument("--cache", type=int, default=0, help="use cache")
-    parser.add_argument("--cache_dir", type=str, default=None, help="dir path for caching")
-    parser.add_argument("--preprocessed_dir", type=str, default=None, help="dir path for storing preprocessed images (overrides cache_dir)")
-    parser.add_argument("--use_preprocessed_dataset", action="store_true", help="use preprocessed dataset instead of the original")
-    parser.add_argument("--accuracy", action="store_true", help="enable accuracy pass")
-    parser.add_argument("--find-peak-performance", action="store_true", help="enable finding peak performance pass")
-    parser.add_argument("--debug", action="store_true", help="debug, turn traces on")
 
-    # file to use mlperf rules compliant parameters
-    parser.add_argument("--mlperf_conf", default="../../mlperf.conf", help="mlperf rules config")
-    # file for user LoadGen settings such as target QPS
-    parser.add_argument("--user_conf", default="user.conf", help="user config for user LoadGen settings such as target QPS")
-    # file for LoadGen audit settings
-    parser.add_argument("--audit_conf", default="audit.config", help="config for LoadGen audit settings")
+    args = argparse.Namespace(
+        dataset=None,  # 명령줄에서 선택되지 않으면 None
+        dataset_path=dataset_path,
+        dataset_list=None,  # 명령줄 인자가 없는 경우 None
+        data_format=None,  # 선택적으로 제공되는 인자는 기본적으로 None
+        profile=profile,
+        scenario="SingleStream",  # 기본값
+        max_batchsize=None,  # 필수 인자가 아니므로 None
+        model=model,
+        output=output,
+        inputs=None,
+        outputs=None,
+        backend=None,
+        model_name=None,
+        threads=os.cpu_count(),  # 기본값으로 CPU 코어 수
+        qps=None,
+        cache=0,  # 기본값 0
+        cache_dir=None,
+        preprocessed_dir=None,
+        use_preprocessed_dataset=False,  # 기본값 False
+        accuracy=accuracy,  # 전달된 accuracy 값
+        find_peak_performance=False,
+        debug=False,
+        mlperf_conf=mlperf_conf,
+        user_conf="user.conf",  # 기본값
+        audit_conf="audit.config",  # 기본값
+        time=None,
+        count=None,
+        performance_sample_count=None,
+        max_latency=None,
+        samples_per_query=8,  # 기본값 8
+    )
+    
 
-    # below will override mlperf rules compliant settings - don't use for official submission
-    parser.add_argument("--time", type=int, help="time to scan in seconds")
-    parser.add_argument("--count", type=int, help="dataset items to use")
-    parser.add_argument("--performance-sample-count", type=int, help="performance sample count")
-    parser.add_argument("--max-latency", type=float, help="mlperf max latency in pct tile")
-    parser.add_argument("--samples-per-query", default=8, type=int, help="mlperf multi-stream samples per query")
-    args = parser.parse_args()
-
+    #parser = argparse.ArgumentParser()
+    #parser.add_argument("--dataset", choices=SUPPORTED_DATASETS.keys(), help="dataset")
+    #parser.add_argument("--dataset-path", required=True, default=dataset_path, help="path to the dataset")
+    #parser.add_argument("--dataset-list", help="path to the dataset list")
+    #parser.add_argument("--data-format", choices=["NCHW", "NHWC"], help="data format")
+    #parser.add_argument("--profile", choices=SUPPORTED_PROFILES.keys(),default=profile, help="standard profiles")
+    #parser.add_argument("--scenario", default="SingleStream",
+    #                    help="mlperf benchmark scenario, one of " + str(list(SCENARIO_MAP.keys())))
+    #parser.add_argument("--max-batchsize", type=int, help="max batch size in a single inference")
+    #parser.add_argument("--model", required=True, default=model, help="model file")
+    #parser.add_argument("--output", default=output, help="test results")
+    #parser.add_argument("--inputs", help="model inputs")
+    #parser.add_argument("--outputs", help="model outputs")
+    #parser.add_argument("--backend", help="runtime to use")
+    #parser.add_argument("--model-name", help="name of the mlperf model, ie. resnet50")
+    #parser.add_argument("--threads", default=os.cpu_count(), type=int, help="threads")
+    #parser.add_argument("--qps", type=int, help="target qps")
+    #parser.add_argument("--cache", type=int, default=0, help="use cache")
+    #parser.add_argument("--cache_dir", type=str, default=None, help="dir path for caching")
+    #parser.add_argument("--preprocessed_dir", type=str, default=None, help="dir path for storing preprocessed images (overrides cache_dir)")
+    #parser.add_argument("--use_preprocessed_dataset", action="store_true", help="use preprocessed dataset instead of the original")
+    #parser.add_argument("--accuracy", action="store_true", default=accuracy, help="enable accuracy pass")
+    #parser.add_argument("--find-peak-performance", action="store_true", help="enable finding peak performance pass")
+    #parser.add_argument("--debug", action="store_true", help="debug, turn traces on")
+#
+    ## file to use mlperf rules compliant parameters
+    #parser.add_argument("--mlperf_conf", default=mlperf_conf, help="mlperf rules config")
+    ## file for user LoadGen settings such as target QPS
+    #parser.add_argument("--user_conf", default="user.conf", help="user config for user LoadGen settings such as target QPS")
+    ## file for LoadGen audit settings
+    #parser.add_argument("--audit_conf", default="audit.config", help="config for LoadGen audit settings")
+#
+    ## below will override mlperf rules compliant settings - don't use for official submission
+    #parser.add_argument("--time", type=int, help="time to scan in seconds")
+    #parser.add_argument("--count", type=int, help="dataset items to use")
+    #parser.add_argument("--performance-sample-count", type=int, help="performance sample count")
+    #parser.add_argument("--max-latency", type=float, help="mlperf max latency in pct tile")
+    #parser.add_argument("--samples-per-query", default=8, type=int, help="mlperf multi-stream samples per query")
+    #args = parser.parse_args()
+    
     # don't use defaults in argparser. Instead we default to a dict, override that with a profile
     # and take this as default unless command line give
     defaults = SUPPORTED_PROFILES["defaults"]
@@ -295,37 +336,36 @@ def get_args():
         args.outputs = args.outputs.split(",")
 
     if args.scenario not in SCENARIO_MAP:
-        parser.error("valid scanarios:" + str(list(SCENARIO_MAP.keys())))
+        TypeError("valid scanarios:" + str(list(SCENARIO_MAP.keys())))
     return args
-
 
 def get_backend(backend):
     if backend == "dxrt":
-        from backend_dxrt import BackendDXRT
-        backend = BackendDxrt()
+        from python.backend_dxrt import BackendDXRT
+        backend = BackendDXRT()
     elif backend == "tensorflow":
-        from backend_tf import BackendTensorflow
+        from python.backend_tf import BackendTensorflow
         backend = BackendTensorflow()
     elif backend == "onnxruntime":
-        from backend_onnxruntime import BackendOnnxruntime
+        from python.backend_onnxruntime import BackendOnnxruntime
         backend = BackendOnnxruntime()
     elif backend == "tvm":
-        from backend_tvm import BackendTVM
+        from python.backend_tvm import BackendTVM
         backend = BackendTVM()
     elif backend == "null":
-        from backend_null import BackendNull
+        from python.backend_null import BackendNull
         backend = BackendNull()
     elif backend == "pytorch":
-        from backend_pytorch import BackendPytorch
+        from python.backend_pytorch import BackendPytorch
         backend = BackendPytorch()
     elif backend == "pytorch-native":
-        from backend_pytorch_native import BackendPytorchNative
+        from python.backend_pytorch_native import BackendPytorchNative
         backend = BackendPytorchNative()      
     elif backend == "tflite":
-        from backend_tflite import BackendTflite
+        from python.backend_tflite import BackendTflite
         backend = BackendTflite()
     elif backend == "ncnn":
-        from backend_ncnn import BackendNCNN
+        from python.backend_ncnn import BackendNCNN
         backend = BackendNCNN()
     else:
         raise ValueError("unknown backend: " + backend)
@@ -447,7 +487,6 @@ class QueueRunner(RunnerBase):
         for worker in self.workers:
             worker.join()
 
-
 def add_results(final_results, name, result_dict, result_list, took, show_accuracy=False):
     percentiles = [50., 80., 90., 95., 99., 99.9]
     buckets = np.percentile(result_list, percentiles).tolist()
@@ -482,10 +521,14 @@ def add_results(final_results, name, result_dict, result_list, took, show_accura
         name, result["qps"], result["mean"], took, acc_str,
         len(result_list), buckets_str))
 
-
-def main():
+def start(profile, mlperf_conf, model, dataset_path, output, accuracy):
     global last_timeing
-    args = get_args()
+
+    sys.argv = [sys.argv[0]]
+    args = get_args(profile, mlperf_conf, model, dataset_path, output, accuracy)
+
+    for key, value in vars(args).items():
+        print(f"{key}: {value}")
 
     log.info(args)
 
@@ -501,6 +544,10 @@ def main():
     # override image format if given
     image_format = args.data_format if args.data_format else backend.image_format()
 
+    print(f"backend : {backend}")
+    print(f"image_format : {image_format}")
+
+
     # --count applies to accuracy mode only and can be used to limit the number of images
     # for testing.
     count_override = False
@@ -510,8 +557,11 @@ def main():
 
     # dataset to use
     wanted_dataset, pre_proc, post_proc, kwargs = SUPPORTED_DATASETS[args.dataset]
+
     if args.use_preprocessed_dataset:
         pre_proc=None
+
+    #imagenet.Imagenet
     ds = wanted_dataset(data_path=args.dataset_path,
                         image_list=args.dataset_list,
                         name=args.dataset,
@@ -523,6 +573,10 @@ def main():
                         preprocessed_dir=args.preprocessed_dir,
                         threads=args.threads,
                         **kwargs)
+
+
+
+
     # load model to backend
     model = backend.load(args.model, inputs=args.inputs, outputs=args.outputs)
     final_results = {
@@ -642,7 +696,3 @@ def main():
     if args.output:
         with open("results.json", "w") as f:
             json.dump(final_results, f, sort_keys=True, indent=4)
-
-
-if __name__ == "__main__":
-    main()

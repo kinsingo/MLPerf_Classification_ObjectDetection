@@ -1,7 +1,6 @@
 #!/bin/bash
-
 if [ $# -lt 1 ]; then
-    echo "usage: $0 tf|onnxruntime|pytorch|tflite|tvm-onnx|tvm-pytorch|tvm-tflite [resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|retinanet] [cpu|gpu]"
+    echo "usage: $0 dxrt|tf|onnxruntime|pytorch|tflite|tvm-onnx|tvm-pytorch|tvm-tflite [resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|retinanet] [cpu|gpu]"
     exit 1
 fi
 if [ "x$DATA_DIR" == "x" ]; then
@@ -18,12 +17,13 @@ device="cpu"
 
 for i in $* ; do
     case $i in
-       tf|onnxruntime|tflite|pytorch|tvm-onnx|tvm-pytorch|tvm-tflite|ncnn) backend=$i; shift;;
+       dxrt|tf|onnxruntime|tflite|pytorch|tvm-onnx|tvm-pytorch|tvm-tflite|ncnn) backend=$i; shift;;
        cpu|gpu|rocm) device=$i; shift;;
        gpu) device=gpu; shift;;
        resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|ssd-resnet34-tf|retinanet) model=$i; shift;;
     esac
 done
+
 
 if [ $device == "cpu" ] ; then
     export CUDA_VISIBLE_DEVICES=""
@@ -31,6 +31,11 @@ fi
 
 name="$model-$backend"
 extra_args=""
+
+echo "Selected backend: $backend"
+echo "Selected device: $device"
+echo "Selected model: $model"
+echo "Selected name: $name"
 
 #
 # dx-rt (SJH)
@@ -124,7 +129,6 @@ if [ $name == "retinanet-pytorch" ] ; then
     model_path="$MODEL_DIR/resnext50_32x4d_fpn.pth"
     profile=retinanet-pytorch
 fi
-
 
 #
 # tflite

@@ -17,6 +17,7 @@
  3. MLPerf 의 python Interpreter 세팅 진행 (DX-RT가 Default로 다운로드 되었으니(특정 Environment 에 다운로드 된 것이 아님))
  4. 가상 환경은 python 3.8.10 64-bit (/bin/python)  사용 
  5. "inference/vision/classification_and_detection/sjh_main.py" 파일 실행하는거로 평가 예정. 
+
  6. run_common.sh 에 아래 내용 추가했음 (dnnx model을 하기 model_path 쪽에 넣어둠, dataset 은 우선 fake_imagenet 폴더 사용해서 평가, 추후 Imagenet 으로 다시 평가)
    if [ $name == "resnet50-dxrt" ] ; then
       model_path="$MODEL_DIR/ResNet50-1.dxnn"
@@ -26,9 +27,30 @@
       model_path="$MODEL_DIR/MobileNetV1-1.dxnn"
       profile=mobilenet-dxrt
    fi
- 7. main.py 의 SUPPORTED_PROFILES 구현
+
+7. run_common.sh 를 다음과 같이 수정 (dxrt 추가)
+if [ $# -lt 1 ]; then
+    echo "usage: $0 dxrt|tf|onnxruntime|pytorch|tflite|tvm-onnx|tvm-pytorch|tvm-tflite [resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|retinanet] [cpu|gpu]"
+    exit 1
+fi
+if [ "x$DATA_DIR" == "x" ]; then
+    echo "DATA_DIR not set" && exit 1
+fi
+if [ "x$MODEL_DIR" == "x" ]; then
+    echo "MODEL_DIR not set" && exit 1
+fi
+
+for i in $* ; do
+    case $i in
+       dxrt|tf|onnxruntime|tflite|pytorch|tvm-onnx|tvm-pytorch|tvm-tflite|ncnn) backend=$i; shift;;
+       cpu|gpu|rocm) device=$i; shift;;
+       gpu) device=gpu; shift;;
+       resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|ssd-resnet34-tf|retinanet) model=$i; shift;;
+    esac
+done
+
+ 8. main.py 의 SUPPORTED_PROFILES 구현 (아래 SUPPORTED_DATASETS 의 imagenet-dxrt-resnet50-mobilenet 을 dataset 으로 불러오도록 함)
  SUPPORTED_PROFILES = {
-    # SJH (DX-RT)
      "resnet50-dxrt": {
         "dataset": "imagenet-dxrt-resnet50-mobilenet",
         "outputs": "ArgMax:0",
@@ -42,13 +64,15 @@
         "model-name": "mobilenet",
     },
  };
- 8. main.py 의 SUPPORTED_DATASETS 구현 (dataset.pre_process_dxrt 구현 필요)
+
+ 9. main.py 의 SUPPORTED_DATASETS 구현 (dataset.pre_process_dxrt 구현 필요)
  SUPPORTED_DATASETS = {
     "imagenet-dxrt-resnet50-mobilenet":
         (imagenet.Imagenet, dataset.pre_process_dxrt, dataset.PostProcessArgMax(offset=0),
          {"image_size": [224, 224, 3]}),
  };
- 9. dataset.py 의 pre_process_dxrt 를 하기와 같이 구현
+
+ 10. dataset.py 의 pre_process_dxrt 를 하기와 같이 구현
  def pre_process_dxrt(img, dims=None, need_transpose=False):
     new_shape=(224, 224)
     align=64
@@ -65,13 +89,14 @@
     dummy = np.full([h, align_factor], 0, dtype=np.uint8)
     image_input = np.concatenate([image, dummy], axis=-1)
     return image_input
-10. main 의 get_backend(backend) 함수에서 BackendDxrt 불러 오도록 함 (backend_dxrt.py 의 BackendDXRT 구현 필요)
+
+11. main 의 get_backend(backend) 함수에서 BackendDxrt 불러 오도록 함 (backend_dxrt.py 의 BackendDXRT 구현 필요)
    def get_backend(backend):
       if backend == "dxrt":
         from backend_dxrt import BackendDXRT
         backend = BackendDxrt()
 
-11. backend_dxrt.py 의 BackendDXRT 하기와 같이 구현함
+12. backend_dxrt.py 의 BackendDXRT 하기와 같이 구현함
    class BackendDXRT(backend.Backend):
       def __init__(self):
          super(BackendDXRT, self).__init__()
@@ -97,8 +122,6 @@
          return ie_output #여기를 어떻게 반환 하느냐에 따라 Postprocessing 이 달라지는듯 ? dataset.PostProcessArgMax(offset=0) 으로 해도 되는거 같음 (Pytorch 쪽과 비슷)
 
 
-
-
 - MLPerf 에 DeepX 올리면서 실제로 어려웠던점
  0. Dataset 다운로드 (약 하루 소요) : 자체적으로 Data Download 가능하도록 WAS 에서 제공하고, Dataset 자체에 대한 설명 및 전처리 하는부분이 있으면 좋을듯함.
 
@@ -108,5 +131,4 @@
  2. MLPerf 의 어떤 부분을 어떤식으로 수정해야 하는지, Open Source 구조 파악하는데 시간이 필요함 (약 하루 소요)
     : Shell Script 기반으로 Command 로 기존 구현에 대한 평가를 용이하게는 만들었으나, 오히려 MLPerf 구현부를 수정해서 평가하기 위해서는 Shell Script 에 대한 분석도 
     별도로 진행 되어야 하기에 구조적으로 복잡하게 보임. Shell Script 그리고 Python Script 가 어떤식으로 상호 동작하는지 구체적인 설명이 없기에, 직접 하나씩 Script 를 모듈별로 분석 해야함. 
-
- 3. 
+    (Error 발생 시, Shell Script 는 Debuging 이 안되기 때문에, 문제점 찾아내기 어려움)
