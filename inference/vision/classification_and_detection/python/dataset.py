@@ -106,8 +106,6 @@ class PostProcessCommon:
         results["good"] = self.good
         results["total"] = self.total
 
-
-
 class PostProcessDXRT_SingleStream_ArgMax:
     def __init__(self):
         self.good = 0

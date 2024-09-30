@@ -34,10 +34,9 @@ def Set_Model_And_Dataset_Directories():
     os.environ['DATA_DIR'] = os.path.join(os.getcwd(), "real_imagenet")#os.environ['DATA_DIR'] = os.path.join(os.getcwd(), "fake_imagenet")
 
 def Set_Evaluation_Parameters():
-
     # 1. Bash 스크립트 실행 (run_local.sh)
-    bash_script = "./run_local.sh onnxruntime mobilenet cpu --accuracy" 
-    #bash_script = "./run_local.sh dxrt mobilenet cpu --accuracy "  
+    #bash_script = "./run_local.sh onnxruntime mobilenet cpu --accuracy" 
+    bash_script = "./run_local.sh dxrt mobilenet cpu --accuracy "  
     #bash_script = "./run_local.sh dxrt resnet50 cpu --accuracy "  
     result = subprocess.run(bash_script, shell=True, capture_output=True, text=True)
 
@@ -73,16 +72,6 @@ def Set_Evaluation_Parameters():
         output=arg_dict.get('output'),
         accuracy=arg_dict.get('accuracy', False)
     )
-
-    # 3. 받은 명령어를 실제로 실행할 경우
-    # subprocess.run(cmd, shell=True)  # 주석을 해제하면 명령어를 실행
-
-    #try:
-    #    # run 명령어를 사용하면 명령어가 성공적으로 실행되었는지 체크하고 결과를 가져올 수 있습니다.
-    #    result = subprocess.run(command, check=True, text=True, capture_output=True)
-    #    print(result.stdout)  # 성공 시 출력 결과 표시
-    #except subprocess.CalledProcessError as e:
-    #    print(f"Error occurred: {e.stderr}")  # 오류 시 에러 메시지 표시
 
 StartFromThisDirectory()
 Set_Model_And_Dataset_Directories()

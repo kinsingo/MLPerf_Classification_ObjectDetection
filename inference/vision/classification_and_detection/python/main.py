@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 from queue import Queue
+import random
 
 import mlperf_loadgen as lg
 import numpy as np
@@ -412,6 +413,7 @@ class RunnerBase:
             if self.take_accuracy:
                 self.post_process.add_results(processed_results)
             self.result_timing.append(time.time() - qitem.start)
+           
         except Exception as ex:  # pylint: disable=broad-except
             src = [self.ds.get_item_loc(i) for i in qitem.content_id]
             log.error("thread: failed on contentid=%s, %s", src, ex)

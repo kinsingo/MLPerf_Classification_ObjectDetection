@@ -86,13 +86,13 @@ class Imagenet(dataset.Dataset):
         
 
         # 멀티스레딩 대신 순차적 처리 (디버깅 위함)
-        for item in lists:
-            self.process(data_path, item, image_lists[lists.index(item)], label_lists[lists.index(item)])
+        #for item in lists:
+        #    self.process(data_path, item, image_lists[lists.index(item)], label_lists[lists.index(item)])
         # 멀티스레딩 처리
-        #executor = concurrent.futures.ThreadPoolExecutor(N)
-        #futures = [executor.submit(self.process, data_path, item, image_lists[lists.index(item)],
-        #    label_lists[lists.index(item)]) for item in lists]
-        #concurrent.futures.wait(futures)
+        executor = concurrent.futures.ThreadPoolExecutor(N)
+        futures = [executor.submit(self.process, data_path, item, image_lists[lists.index(item)],
+            label_lists[lists.index(item)]) for item in lists]
+        concurrent.futures.wait(futures)
 
         for i in range (len(image_lists)):
             self.image_list += image_lists[i]
