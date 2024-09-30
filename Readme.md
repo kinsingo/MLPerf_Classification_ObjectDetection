@@ -1,8 +1,8 @@
 # 중요한것
 : 하기 3개 구현 하면 됨
-    1) pre-processing
-    2) Inference
-    3) post-processing
+1. pre-processing
+2. Inference
+3. post-processing
 
 # 실제 구현 과정
  1. "imageNet_example.py" 를 수정해서 성공적으로 돌림 (4ea Sample Image 중에 3개 맞춤, 1.jpeg 는 Toast 로 맞추었음 (실제로 헷갈림))
