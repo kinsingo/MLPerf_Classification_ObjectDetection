@@ -13,6 +13,7 @@
  6. "inference/vision/classification_and_detection/sjh_main.py" 파일 실행하는거로 평가 예정. 
 
  7. run_common.sh 에 아래 내용 추가했음 (dnnx model을 하기 model_path 쪽에 넣어둠, dataset 은 우선 fake_imagenet 폴더 사용해서 평가, 추후 Imagenet 으로 다시 평가)
+```bash
    if [ $name == "resnet50-dxrt" ] ; then
       model_path="$MODEL_DIR/ResNet50-1.dxnn"
       profile=resnet50-dxrt
@@ -21,8 +22,10 @@
       model_path="$MODEL_DIR/MobileNetV1-1.dxnn"
       profile=mobilenet-dxrt
    fi
+```
 
-8. run_common.sh 를 다음과 같이 수정 (dxrt 추가)
+9. run_common.sh 를 다음과 같이 수정 (dxrt 추가)
+```bash
 if [ $# -lt 1 ]; then
     echo "usage: $0 dxrt|tf|onnxruntime|pytorch|tflite|tvm-onnx|tvm-pytorch|tvm-tflite [resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|retinanet] [cpu|gpu]"
     exit 1
@@ -36,8 +39,10 @@ for i in $* ; do
        resnet50|mobilenet|ssd-mobilenet|ssd-resnet34|ssd-resnet34-tf|retinanet) model=$i; shift;;
     esac
 done
+```
 
  8. main.py 의 SUPPORTED_PROFILES 구현 (아래 SUPPORTED_DATASETS 의 imagenet-dxrt-resnet50-mobilenet 을 dataset 으로 불러오도록 함)
+```python
  SUPPORTED_PROFILES = {
      "resnet50-dxrt": {
         "dataset": "imagenet-dxrt-resnet50-mobilenet",
@@ -52,22 +57,25 @@ done
         "model-name": "mobilenet",
     },
  };
+```
 
- 9. main.py 의 SUPPORTED_DATASETS 직접 구현하는 [dataset.pre_process_dxrt, dataset.PostProcessDXRT_SingleStream_ArgMax()] 불러옴
+ 10. main.py 의 SUPPORTED_DATASETS 직접 구현하는 [dataset.pre_process_dxrt, dataset.PostProcessDXRT_SingleStream_ArgMax()] 불러옴
+```python
 SUPPORTED_DATASETS = {
     #resnet50-dxrt, mobilenet-dxrt
     "imagenet-dxrt-resnet50-mobilenet":
         (imagenet.Imagenet, dataset.pre_process_dxrt, dataset.PostProcessDXRT_SingleStream_ArgMax(),
          {"image_size": [224, 224, 3]}),
+```
 
- 10. dataset.py 의 pre_process_dxrt, PostProcessDXRT_SingleStream_ArgMax 를 하기와 같이 구현
+ 11. dataset.py 의 pre_process_dxrt, PostProcessDXRT_SingleStream_ArgMax 를 하기와 같이 구현
+```python
 #resnet50-dxrt, mobilenet-dxrt
 def pre_process_dxrt(img, dims=None, need_transpose=False):
     output_height, output_width, _ = dims #224, 224, 3
     align=64
     format=cv2.COLOR_BGR2RGB
     img = cv2.resize(img, (output_width,output_height))
-
     h, w, c = img.shape
     if format is not None:
         img = cv2.cvtColor(img, format)
@@ -103,15 +111,19 @@ class PostProcessDXRT_SingleStream_ArgMax:
 
     def finalize(self, results, ds=False, output_dir=None):
         results["good"] = self.good
-        results["total"] = self.total 
+        results["total"] = self.total
+```
 
 11. main 의 get_backend(backend) 함수에서 BackendDxrt 불러 오도록 함 (backend_dxrt.py 의 BackendDXRT 구현 필요)
+```python
    def get_backend(backend):
       if backend == "dxrt":
         from backend_dxrt import BackendDXRT
         backend = BackendDxrt()
+```
 
 12. backend_dxrt.py 의 BackendDXRT 하기와 같이 구현함
+```python
 from dx_engine import InferenceEngine
 class BackendDXRT(backend.Backend):
     def __init__(self):
@@ -135,4 +147,5 @@ class BackendDXRT(backend.Backend):
     def predict(self, feed):
         feed = feed["Im2col_input"]
         ie_output = self.ie.run(feed)
-        return ie_output 
+        return ie_output
+```
