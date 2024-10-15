@@ -1,3 +1,7 @@
+![Uploading image.png…]()
+
+
+
 # 중요한것
 : 하기 3개 구현 하면 됨
 1. pre-processing
