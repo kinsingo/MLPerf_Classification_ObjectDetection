@@ -1,5 +1,3 @@
-![Uploading image.png…]()
-
 
 
 # 중요한것
